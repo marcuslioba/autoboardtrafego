@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Performance Dinâmico e Interativo (Final)</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.1/chart.min.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
+
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.js"></script>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
+    <style>
+    /* --- Paleta de Cores Trevo Açaí --- */
+    :root {
+        --color-primary-dark: #4A235A; 
+        --color-primary-light: #764BA2; 
+        --color-success-green: #1E8449; 
+        --color-alert-yellow: #FFCC00; 
+        --color-negative-red: #E74C3C; 
+        --color-text-light: #f4f4f4;
+    }
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        scroll-behavior: smooth; 
+    }
+
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, var(--color-primary-light) 0%, var(--color-primary-dark) 100%);
+        padding: 20px;
+        min-height: 100vh;
+    }
+
+    .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        transition: max-width 0.3s; 
+    }
+    
+    .dashboard:fullscreen,
+    .dashboard:-webkit-full-screen,
+    .dashboard:-moz-full-screen,
+    .dashboard:-ms-full-screen {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 20px;
+        box-shadow: none;
+        overflow: auto; 
+    }
+
+    .upload-section {
+        background: white;
+        border-radius: 15px;
+        padding: 30px;
+        margin-bottom: 20px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        transition: all 0.4s ease-in-out; 
+        max-height: 800px; 
+        opacity: 1;
+        overflow: visible;
+        visibility: visible;
+    }
+
+    .upload-section.hidden {
+        max-height: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+        margin-bottom: 0;
+        opacity: 0;
+        visibility: hidden;
+    }
+
+    .upload-area {
+        border: 2px dashed var(--color-primary-light);
+        padding: 40px;
+        text-align: center;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: background 0.3s ease;
+    }
+
+    .upload-area:hover {
+        background: #f8f9ff;
+    }
+
+    .dashboard {
+        background: white;
+        border-radius: 15px;
+        padding: 30px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        display: none; 
+    }
+
+    h1 {
+        color: var(--color-primary-dark);
+        text-align: center;
+        margin-bottom: 20px;
+        font-size: 2.2em;
+        font-weight: 700;
+    }
+
+    .header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .control-btn {
+        padding: 10px 15px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: bold;
+        transition: all 0.3s ease;
+        background: var(--color-alert-yellow);
+        color: var(--color-primary-dark);
+    }
+    /* Estilo específico para o botão de limpeza de filtros */
+    #clear-filters-btn {
+        background: #9b59b6; /* Cor roxa sutil */
+        color: white;
+    }
+
+    .control-btn:hover {
+        background: #ffe366;
+        transform: scale(1.05);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    /* Estilo para o botão de limpeza no hover */
+    #clear-filters-btn:hover {
+        background: #8e44ad; 
+        transform: scale(1.05);
+    }
+
+    /* --- Filtros Dinâmicos e de Data --- */
+    #filter-controls {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    #filter-container-wrapper {
+        border: 1px solid #eee;
+        border-radius: 10px;
+        background: #fcfcfc;
+        transition: all 0.4s ease-in-out;
+        overflow: hidden;
+        margin-bottom: 20px;
+        /* Estado recolhido (inicialmente expandido) */
+        max-height: 1000px; 
+    }
+    #filter-container-wrapper.collapsed {
+        max-height: 0;
+        padding: 0 15px;
+        border: 1px solid transparent; 
+    }
+    #filter-container {
+        padding: 15px;
+    }
+
+    #dynamic-filters-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+
+    .filter-group {
+        min-width: 200px; 
+        flex-grow: 1;
+    }
+
+    .filter-group label {
+        display: block;
+        font-weight: bold;
+        color: var(--color-primary-dark);
+        margin-bottom: 5px;
+    }
+
+    .filter-actions-group button {
+        margin-right: 5px;
+        padding: 3px 8px;
+        font-size: 0.8em;
+        background: #eee;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    /* Estilo Date Range Picker */
+    .date-filter-group input {
+        padding: 8px;
+        border: 1px solid var(--color-primary-light);
+        border-radius: 5px;
+    }
+    .date-filter-group {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 15px;
+        align-items: center;
+    }
+    .date-filter-group label {
+        min-width: 80px;
+    }
+
+
+    /* Estilo do Select2 */
+    .select2-container .select2-selection--multiple {
+        min-height: 40px;
+        border: 1px solid var(--color-primary-light) !important;
+        border-radius: 8px !important;
+        padding: 3px;
+    }
+    .select2-container--default .select2-selection--multiple .select2-selection__choice {
+        background-color: var(--color-primary-light) !important;
+        border: 1px solid var(--color-primary-dark) !important;
+        color: white !important;
+        border-radius: 4px !important;
+    }
+    .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+        color: var(--color-text-light) !important;
+    }
+
+    /* --- Seção de Métricas/Cards (Interativo) --- */
+    .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+
+    .metric-card {
+        cursor: pointer; 
+        background: linear-gradient(45deg, var(--color-primary-dark), var(--color-primary-light));
+        color: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+        transition: transform 0.3s ease, border 0.3s ease;
+        text-align: center;
+        border: 3px solid transparent; 
+    }
+
+    .metric-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+    .metric-card.active {
+        border: 3px solid var(--color-alert-yellow);
+        box-shadow: 0 0 15px var(--color-alert-yellow);
+    }
+
+    .metric-title {
+        font-size: 0.9em;
+        opacity: 0.8;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .metric-value {
+        font-size: 2.5em;
+        font-weight: 700;
+        margin-bottom: 5px;
+    }
+
+    .metric-change {
+        font-size: 0.8em;
+        opacity: 0.7;
+    }
+    
+    .metric-card-kpi1 {
+        background: linear-gradient(45deg, #1E8449, #2ECC71); 
+    }
+    .metric-card-kpi2 {
+        background: linear-gradient(45deg, #FFCC00, #F39C12); 
+        color: var(--color-primary-dark);
+    }
+
+    /* --- Gráficos --- */
+    .charts-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+
+    .chart-card {
+        background: #fcfcfc;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }
+
+    .chart-card h3 {
+        color: var(--color-primary-dark);
+        margin-bottom: 15px;
+        border-bottom: 2px solid var(--color-alert-yellow);
+        padding-bottom: 5px;
+    }
+
+    @media (max-width: 768px) {
+        .container {
+            padding: 10px;
+        }
+        .upload-section, .dashboard {
+            padding: 20px;
+        }
+        h1 {
+            font-size: 1.8em;
+        }
+        .metrics-grid {
+            grid-template-columns: 1fr;
+        }
+        .date-filter-group {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+    }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="upload-section" id="uploadSection">
+        <h2>Carregue seu Arquivo CSV</h2>
+        <p>Este dashboard foi adaptado para análise dinâmica de KPIs e filtragem avançada de datas.</p>
+        <br>
+        <div class="upload-area" id="uploadArea">
+            <input type="file" id="csvFile" accept=".csv" style="display: none;">
+            <p>Arraste e solte o arquivo CSV aqui, ou clique para selecionar.</p>
+        </div>
+        <br>
+        <button class="control-btn" onclick="document.getElementById('csvFile').click()">Selecionar CSV</button>
+    </div>
+
+    <div class="dashboard" id="mainDashboard">
+        <h1>Dashboard Analítico Interativo</h1>
+
+        <div class="header-actions">
+            <button class="control-btn" onclick="toggleFullScreen()"><i class="fas fa-expand"></i> Tela Cheia</button>
+            <button class="control-btn" onclick="generatePDF()"><i class="fas fa-file-pdf"></i> Exportar PDF</button>
+            <button class="control-btn" style="background: var(--color-negative-red); color: white;" onclick="resetDashboard()"><i class="fas fa-redo"></i> Recarregar CSV</button>
+        </div>
+
+        <div id="filter-controls">
+            <h2 style="color: var(--color-primary-dark);">Controles e Filtros</h2>
+            <div>
+                <button class="control-btn" id="clear-filters-btn" onclick="clearAllFilters()"><i class="fas fa-eraser"></i> Limpar Filtros</button>
+                <button class="control-btn" id="toggle-filters-btn" onclick="toggleFilterCollapse()"><i class="fas fa-minus-circle"></i> Recolher Filtros</button>
+            </div>
+        </div>
+
+        <div id="filter-container-wrapper">
+            <div id="filter-container">
+                <div class="date-filter-group">
+                    <label for="startDate">Data Inicial:</label>
+                    <input type="text" id="startDate" placeholder="dd/mm/aaaa" readonly>
+                    <label for="endDate">Data Final:</label>
+                    <input type="text" id="endDate" placeholder="dd/mm/aaaa" readonly>
+                </div>
+                
+                <hr style="margin: 15px 0; border: 0; border-top: 1px dashed #ccc;">
+
+                <div id="dynamic-filters-container"></div>
+            </div>
+        </div>
+
+
+        <h2 style="color: var(--color-primary-dark); margin-bottom: 10px;">Métricas e KPIs (Clique para Gráfico)</h2>
+        <div class="metrics-grid" id="metrics-kpis">
+            </div>
+
+        <h2 style="color: var(--color-primary-dark); margin-bottom: 10px;">Gráficos de Comparação</h2>
+        <div class="charts-grid" id="charts-container">
+            <div class="chart-card">
+                <h3 id="chartTitle">Selecione um KPI para Análise (Gráfico de Barras)</h3>
+                <canvas id="mainChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let rawData = [];
+    let filteredData = [];
+    let textColumns = [];
+    let kpiColumns = [];
+    let selectedKpi = null; 
+    const colorCycle = [
+        '#764BA2', '#4A235A', '#FFCC00', '#1E8449', '#E74C3C', '#2C3E50', '#8E44AD', '#3498DB'
+    ];
+    
+    const excludedKpis = ['COD', 'CRIATIVO', 'DATA_DE_INICIO', 'DATA_DE_FIM', 'VALOR_DIARIO', 'SITUAÇÃO', 'TIPO', 'TIPO_DO_VALOR', 'MÊS'];
+    const excludedFilterColumns = ['MÊS', 'COD', 'CRIATIVO', 'VALOR_DIARIO', 'DATA_DE_INICIO', 'DATA_DE_FIM'];
+
+
+    // --- UTILS ---
+
+    function cleanKey(key) {
+        return key.trim().toUpperCase()
+            .replace(/[ÁÀÂÃÄ]/g, 'A').replace(/[ÉÈÊË]/g, 'E').replace(/[ÍÌÎÏ]/g, 'I')
+            .replace(/[ÓÒÔÕÖ]/g, 'O').replace(/[ÚÙÛÜ]/g, 'U').replace(/[Ç]/g, 'C')
+            .replace(/[^A-Z0-9_]/g, '_')
+            .replace(/_+/g, '_')
+            .replace(/^_|_$/g, '');
+    }
+    
+    function formatNumber(num, isCurrency = false) {
+        if (typeof num !== 'number' || isNaN(num)) return isCurrency ? "R$ 0,00" : "0";
+
+        const options = {
+            style: isCurrency ? 'currency' : 'decimal',
+            currency: 'BRL',
+            minimumFractionDigits: isCurrency ? 2 : 0,
+            maximumFractionDigits: isCurrency ? 2 : 2
+        };
+        
+        let formatted = new Intl.NumberFormat('pt-BR', options).format(num);
+        
+        if (!isCurrency && num % 1 === 0) {
+             formatted = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
+        }
+
+        return formatted;
+    }
+
+    function parseNumber(value) {
+        if (!value) return 0;
+        let cleanValue = String(value).trim();
+        
+        cleanValue = cleanValue.replace('R$', '').trim();
+        cleanValue = cleanValue.replace(/\./g, '');
+        cleanValue = cleanValue.replace(/,/g, '.');
+
+        const num = parseFloat(cleanValue);
+        return isNaN(num) ? 0 : num;
+    }
+
+    function parseDate(dateString) {
+        if (!dateString) return null;
+        const parts = dateString.split('/');
+        if (parts.length === 3) {
+            return new Date(parts[2], parts[1] - 1, parts[0]);
+        }
+        return null;
+    }
+
+
+    // --- CARREGAMENTO DE DADOS E DETECÇÃO DE TIPOS ---
+
+    function handleFile(file) {
+        if (!file) return;
+
+        Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            complete: (results) => {
+                const processed = processData(results.data);
+                rawData = processed.data;
+
+                initializeDatePickers(rawData); 
+
+                selectedKpi = kpiColumns.length > 0 ? kpiColumns[0] : null; 
+                
+                // NOVO: Aplica filtros após 50ms para garantir que o Select2 esteja pronto
+                setTimeout(applyFilters, 50); 
+            },
+            error: (error) => {
+                alert('Erro ao processar o arquivo CSV: ' + error.message);
+            }
+        });
+    }
+
+    function processData(data) {
+        if (data.length === 0) return { data: [], textColumns: [], kpiColumns: [] };
+        
+        const originalHeaders = Object.keys(data[0]);
+        textColumns = [];
+        kpiColumns = [];
+
+        const processedData = data.map(row => {
+            const cleanRow = {};
+            originalHeaders.forEach(key => {
+                const cleanedKey = cleanKey(key);
+                cleanRow[cleanedKey] = row[key];
+            });
+            return cleanRow;
+        });
+        
+        const sampleSize = Math.min(processedData.length, 50);
+        const headers = Object.keys(processedData[0]);
+
+        headers.forEach(header => {
+            if (excludedKpis.includes(header)) {
+                textColumns.push(header);
+                return;
+            }
+
+            let numericCount = 0;
+            let totalCount = 0;
+
+            for (let i = 0; i < sampleSize; i++) {
+                const value = processedData[i][header];
+                if (value !== undefined && value !== null && String(value).trim() !== '') {
+                    totalCount++;
+                    const num = parseNumber(value);
+                    if (num !== 0 || (String(value).trim().replace(/R\$\s*/, '') === '0' || String(value).trim().replace(/R\$\s*/, '') === '0,00')) {
+                        numericCount++;
+                    }
+                }
+            }
+            
+            if (totalCount > 0 && (numericCount / totalCount) > 0.7) {
+                kpiColumns.push(header);
+            } else {
+                textColumns.push(header);
+            }
+        });
+
+        const finalData = processedData.map(row => {
+            kpiColumns.forEach(kpi => {
+                row[kpi] = parseNumber(row[kpi]);
+            });
+            return row;
+        });
+
+        return { data: finalData, textColumns, kpiColumns };
+    }
+
+
+    // --- FILTROS DE DATA ---
+    function initializeDatePickers(data) {
+        const dateColumn = 'DATA_DE_INICIO';
+        let minDate = null;
+        let maxDate = null;
+
+        data.forEach(row => {
+            const date = parseDate(row[dateColumn]);
+            if (date) {
+                if (!minDate || date < minDate) minDate = date;
+                if (!maxDate || date > maxDate) maxDate = date;
+            }
+        });
+
+        const formatDate = (date) => {
+            if (!date) return '';
+            const dd = String(date.getDate()).padStart(2, '0');
+            const mm = String(date.getMonth() + 1).padStart(2, '0');
+            const yyyy = date.getFullYear();
+            return `${dd}/${mm}/${yyyy}`;
+        };
+        
+        const minDateStr = formatDate(minDate);
+        const maxDateStr = formatDate(maxDate);
+        $('#startDate').val(minDateStr);
+        $('#endDate').val(maxDateStr);
+
+
+        $("#startDate, #endDate").datepicker({
+            dateFormat: 'dd/mm/yy',
+            dayNames: ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'],
+            dayNamesMin: ['D','S','T','Q','Q','S','S'],
+            dayNamesShort: ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'],
+            monthNames: ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'],
+            monthNamesShort: ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'],
+            onSelect: applyFilters,
+            changeMonth: true,
+            changeYear: true
+        });
+
+        $('#startDate, #endDate').on('change', applyFilters);
+    }
+
+
+    // --- CRIAÇÃO DE FILTROS DINÂMICOS ---
+    function createDynamicFilters(data) {
+        const container = document.getElementById('dynamic-filters-container');
+        container.innerHTML = ''; 
+
+        const filterableColumns = textColumns.filter(col => !excludedFilterColumns.includes(col));
+
+        filterableColumns.forEach(columnKey => {
+            const uniqueValues = [...new Set(data.map(row => row[columnKey]).filter(v => v))].sort();
+            
+            const filterGroup = document.createElement('div');
+            filterGroup.className = 'filter-group';
+            
+            const label = document.createElement('label');
+            label.textContent = columnKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()); 
+            filterGroup.appendChild(label);
+            
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'filter-actions-group';
+            actionsDiv.innerHTML = `
+                <button type="button" onclick="toggleSelectAll('${columnKey}', true)">Marcar Todas</button>
+                <button type="button" onclick="toggleSelectAll('${columnKey}', false)">Desmarcar Todas</button>
+            `;
+            filterGroup.appendChild(actionsDiv);
+            
+            const select = document.createElement('select');
+            select.id = `filter-${columnKey}`;
+            select.className = 'dynamic-filter';
+            select.setAttribute('multiple', 'multiple');
+            select.style.width = '100%'; 
+
+            uniqueValues.forEach(value => {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = value;
+                // NOVO: Começa desmarcado
+                option.selected = false; 
+                select.appendChild(option);
+            });
+            
+            filterGroup.appendChild(select);
+            container.appendChild(filterGroup);
+        });
+
+        // Seleciona Select2
+        $('.dynamic-filter').select2({
+            placeholder: 'Selecione uma ou mais opções',
+            allowClear: true
+        });
+
+        // Adiciona o listener de mudança APÓS a inicialização
+        $('.dynamic-filter').on('change', applyFilters);
+
+        // Dispara a desmarcação para garantir o estado inicial de não selecionado
+        filterableColumns.forEach(columnKey => {
+            $(`#filter-${columnKey}`).val(null).trigger('change');
+        });
+    }
+
+    function toggleSelectAll(columnKey, selectAll) {
+        const selectElement = $(`#filter-${columnKey}`);
+        selectElement.find('option').prop('selected', selectAll);
+        selectElement.trigger('change'); 
+    }
+    
+    // NOVO: Função para limpar todos os filtros
+    function clearAllFilters() {
+        // Limpa os filtros de data
+        const dateColumn = 'DATA_DE_INICIO';
+        let minDate = null;
+        let maxDate = null;
+        rawData.forEach(row => {
+            const date = parseDate(row[dateColumn]);
+            if (date) {
+                if (!minDate || date < minDate) minDate = date;
+                if (!maxDate || date > maxDate) maxDate = date;
+            }
+        });
+        const formatDate = (date) => {
+            if (!date) return '';
+            const dd = String(date.getDate()).padStart(2, '0');
+            const mm = String(date.getMonth() + 1).padStart(2, '0');
+            const yyyy = date.getFullYear();
+            return `${dd}/${mm}/${yyyy}`;
+        };
+        $('#startDate').val(formatDate(minDate));
+        $('#endDate').val(formatDate(maxDate));
+
+
+        // Limpa os filtros de dropdown
+        $('.dynamic-filter').each(function() {
+            // Deseleciona todas as opções no Select2
+            $(this).val(null).trigger('change');
+        });
+
+        // O trigger('change') em cada filtro de dropdown já chama o applyFilters,
+        // mas é bom garantir que a data também seja aplicada.
+        applyFilters();
+    }
+
+
+    // --- APLICAÇÃO DE FILTROS ---
+    function applyFilters() {
+        let currentData = rawData;
+
+        // 1. Filtragem por Intervalo de Datas
+        const startDateStr = $('#startDate').val();
+        const endDateStr = $('#endDate').val();
+        const start = parseDate(startDateStr);
+        const end = parseDate(endDateStr);
+        
+        if (start && end) {
+            const endOfDay = new Date(end.getFullYear(), end.getMonth(), end.getDate(), 23, 59, 59);
+
+            currentData = currentData.filter(row => {
+                const rowDate = parseDate(row.DATA_DE_INICIO);
+                return rowDate && rowDate >= start && rowDate <= endOfDay;
+            });
+        }
+        
+        // 2. Filtragem por Dropdowns Dinâmicos
+        const filterableColumns = textColumns.filter(col => !excludedFilterColumns.includes(col));
+        filterableColumns.forEach(columnKey => {
+            const selectElement = $(`#filter-${columnKey}`);
+            if (selectElement.length) {
+                const selectedValues = selectElement.val(); 
+
+                if (selectedValues && selectedValues.length > 0) {
+                    currentData = currentData.filter(row => selectedValues.includes(row[columnKey]));
+                }
+            }
+        });
+
+        filteredData = currentData;
+        renderDashboard(filteredData);
+    }
+
+    // --- FUNÇÕES DE RENDERIZAÇÃO ---
+    
+    function renderDashboard(data) {
+        document.getElementById('uploadSection').classList.add('hidden');
+        document.getElementById('mainDashboard').style.display = 'block';
+        
+        if ($('.dynamic-filter').length === 0 && textColumns.length > 0) {
+             createDynamicFilters(rawData);
+        }
+
+        const metrics = calculateMetrics(data);
+        renderMetrics(metrics);
+        
+        renderCharts(data, selectedKpi); 
+    }
+
+    function calculateMetrics(data) {
+        const metrics = {};
+        kpiColumns.forEach(kpi => {
+            const sum = data.reduce((acc, row) => acc + row[kpi], 0);
+            metrics[kpi] = {
+                total: sum,
+                count: data.length
+            };
+        });
+        return metrics;
+    }
+
+    function renderMetrics(metrics) {
+        const grid = document.getElementById('metrics-kpis');
+        grid.innerHTML = '';
+        let cardIndex = 0;
+
+        for (const kpi in metrics) {
+            const metric = metrics[kpi];
+            const title = kpi.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()); 
+            const isCurrency = kpi.includes('VALOR') || kpi.includes('TOTAL') || kpi.includes('CUSTO');
+            const value = formatNumber(metric.total, isCurrency);
+            const subtext = `Total em ${metric.count} registros`;
+            const cardClass = `metric-card-kpi${cardIndex % 2 + 1}`; 
+            
+            const isActive = kpi === selectedKpi ? 'active' : '';
+            
+            const card = document.createElement('div');
+            card.className = `metric-card ${cardClass} ${isActive}`;
+            card.setAttribute('onclick', `selectKpiForChart('${kpi}')`); 
+            
+            card.innerHTML = `
+                <div class="metric-title">${title}</div>
+                <div class="metric-value">${value}</div>
+                <div class="metric-change">${subtext}</div>
+            `;
+            grid.appendChild(card);
+            cardIndex++;
+        }
+
+        if (kpiColumns.length === 0) {
+            grid.innerHTML = '<p style="color: var(--color-primary-dark);">Nenhuma coluna numérica (KPI) identificada no seu arquivo.</p>';
+        }
+    }
+
+    function selectKpiForChart(kpi) {
+        selectedKpi = kpi;
+        document.querySelectorAll('.metric-card').forEach(card => card.classList.remove('active'));
+        document.querySelector(`[onclick="selectKpiForChart('${kpi}')"]`).classList.add('active');
+        
+        renderCharts(filteredData, selectedKpi);
+    }
+    
+    let mainChartInstance = null;
+    
+    function renderCharts(data, kpiKey) {
+        if (!kpiKey || textColumns.length === 0) {
+            document.getElementById('chartTitle').textContent = 'Selecione um KPI acima para Análise (Gráfico de Barras)';
+            if (mainChartInstance) mainChartInstance.destroy();
+            return;
+        }
+
+        const chartGroupingExclusions = excludedFilterColumns.concat(['MÊS']);
+        const groupingColumn = textColumns.filter(col => !chartGroupingExclusions.includes(col))[0] || null; 
+
+        if (!groupingColumn) {
+             document.getElementById('chartTitle').textContent = 'Faltam colunas de texto (não excluídas) para agrupar. Gráfico indisponível.';
+             if (mainChartInstance) mainChartInstance.destroy();
+             return;
+        }
+
+        const summaryData = data.reduce((acc, row) => {
+            const group = row[groupingColumn] || 'Outros';
+            acc[group] = (acc[group] || 0) + row[kpiKey];
+            return acc;
+        }, {});
+        
+        const labels = Object.keys(summaryData);
+        const dataValues = Object.values(summaryData);
+        const kpiTitle = kpiKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        const groupingTitle = groupingColumn.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        
+        document.getElementById('chartTitle').textContent = `${kpiTitle} por ${groupingTitle}`;
+
+
+        const ctx = document.getElementById('mainChart').getContext('2d');
+        if (mainChartInstance) {
+            mainChartInstance.destroy();
+        }
+
+        mainChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: kpiTitle,
+                    data: dataValues,
+                    backgroundColor: colorCycle.slice(0, dataValues.length), 
+                    borderColor: 'rgba(255, 255, 255, 0.8)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    title: {
+                        display: false
+                    }
+                }
+            }
+        });
+    }
+
+    // --- FUNÇÕES DE CONTROLE GERAL ---
+
+    function resetDashboard() {
+        document.getElementById('uploadSection').classList.remove('hidden');
+        document.getElementById('mainDashboard').style.display = 'none';
+        document.getElementById('csvFile').value = '';
+        rawData = [];
+        filteredData = [];
+        textColumns = [];
+        kpiColumns = [];
+        selectedKpi = null;
+        
+        $('.dynamic-filter').select2('destroy');
+        $("#startDate, #endDate").datepicker('destroy');
+        $('#startDate').val('');
+        $('#endDate').val('');
+        
+        document.getElementById('dynamic-filters-container').innerHTML = '';
+        document.getElementById('metrics-kpis').innerHTML = '';
+        document.getElementById('chartTitle').textContent = 'Selecione um KPI para Análise (Gráfico de Barras)';
+        
+        if (mainChartInstance) {
+             mainChartInstance.destroy();
+             mainChartInstance = null;
+        }
+    }
+    
+    // NOVO: Função para recolher/expandir filtros
+    function toggleFilterCollapse() {
+        const wrapper = $('#filter-container-wrapper');
+        const button = $('#toggle-filters-btn');
+        const icon = button.find('i');
+
+        if (wrapper.hasClass('collapsed')) {
+            wrapper.removeClass('collapsed');
+            icon.removeClass('fa-plus-circle').addClass('fa-minus-circle');
+            button.html('<i class="fas fa-minus-circle"></i> Recolher Filtros');
+        } else {
+            wrapper.addClass('collapsed');
+            icon.removeClass('fa-minus-circle').addClass('fa-plus-circle');
+            button.html('<i class="fas fa-plus-circle"></i> Expandir Filtros');
+        }
+    }
+
+    // --- FUNÇÕES DE TELA CHEIA E PDF ---
+
+    document.addEventListener('fullscreenchange', () => {
+        if (!document.fullscreenElement && mainChartInstance) {
+            mainChartInstance.resize(); 
+            applyFilters(); 
+        }
+    });
+
+    function toggleFullScreen() {
+        const report = document.getElementById('mainDashboard');
+        if (!document.fullscreenElement) {
+            if (report.requestFullscreen) {
+                report.requestFullscreen();
+            } else if (report.mozRequestFullScreen) {
+                report.mozRequestFullScreen();
+            } else if (report.webkitRequestFullscreen) {
+                report.webkitRequestFullscreen();
+            } else if (report.msRequestFullscreen) {
+                report.msRequestFullscreen();
+            }
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.mozCancelFullScreen) {
+                document.mozCancelFullScreen();
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            } else if (document.msExitFullscreen) {
+                document.msExitFullscreen();
+            }
+        }
+    }
+
+    function generatePDF() {
+        const element = document.getElementById('mainDashboard');
+        const opt = {
+            margin:       10,
+            filename:     'dashboard_analitico.pdf',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2, logging: true, dpi: 192, letterRendering: true },
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+        const buttons = document.querySelectorAll('.header-actions');
+        buttons.forEach(btn => btn.style.display = 'none');
+
+        html2pdf().from(element).set(opt).save().then(() => {
+            buttons.forEach(btn => btn.style.display = 'flex');
+        });
+    }
+
+    // --- CORREÇÃO FINAL: DRAG AND DROP ---
+    const uploadArea = document.getElementById('uploadArea');
+    const csvFileInput = document.getElementById('csvFile');
+
+    // 1. Evento para input normal (clique no botão 'Selecionar CSV')
+    csvFileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+
+    // 2. Eventos para Drag and Drop
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.style.background = '#f8f9ff';
+    });
+
+    uploadArea.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        uploadArea.style.background = '';
+    });
+
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.style.background = '';
+        
+        const file = e.dataTransfer.files[0];
+        if (file && file.name.endsWith('.csv')) {
+            // Passa o objeto File diretamente, corrigindo o erro de source
+            handleFile(file); 
+        } else {
+            alert('Por favor, selecione um arquivo CSV válido.');
+        }
+    });
+
+</script>
+</body>
+</html>
